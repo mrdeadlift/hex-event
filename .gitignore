@@ -1,0 +1,23 @@
+# Rust
+levents/target/
+**/target/
+
+# Node
+node_modules/
+.pnpm-store/
+bindings/ts/dist/
+
+# Python
+**/__pycache__/
+**/*.pyc
+.mypy_cache/
+.pytest_cache/
+bindings/py/.venv/
+
+# Editor
+.DS_Store
+.idea/
+.vscode/
+
+# Misc
+.env

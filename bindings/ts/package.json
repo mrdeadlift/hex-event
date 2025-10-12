@@ -1,0 +1,32 @@
+{
+  "name": "@levents/sdk",
+  "version": "0.0.1",
+  "description": "TypeScript client SDK for the levents daemon",
+  "private": false,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint \"src/**/*.ts\"",
+    "test": "node --test",
+    "example:basic": "ts-node --esm examples/node/basic.ts"
+  },
+  "peerDependencies": {
+    "@grpc/grpc-js": "^1.11.0"
+  },
+  "dependencies": {
+    "@grpc/grpc-js": "^1.11.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.16.9",
+    "@typescript-eslint/eslint-plugin": "^8.12.2",
+    "@typescript-eslint/parser": "^8.12.2",
+    "eslint": "^9.14.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.3"
+  }
+}
