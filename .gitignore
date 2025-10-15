@@ -21,3 +21,4 @@ bindings/py/.venv/
 
 # Misc
 .env
+.serena
