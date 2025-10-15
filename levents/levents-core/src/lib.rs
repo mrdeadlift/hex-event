@@ -1,6 +1,9 @@
 //! Core runtime primitives for the levents daemon.
 
+mod live_client;
+
 use anyhow::Result;
+use futures_core::Stream;
 use levents_model::{
     Event, EventBatch, EventKind, EventPayload, HeartbeatEvent, PlayerEvent, PlayerRef, Team,
 };
@@ -16,6 +19,18 @@ use tracing::{debug, instrument, warn};
 pub struct DaemonConfig {
     pub heartbeat_interval: Duration,
     pub live_base_url: String,
+    /// Interval used while the player is in combat/high activity.
+    pub poll_interval_combat: Duration,
+    /// Interval used for normal gameplay moments.
+    pub poll_interval_normal: Duration,
+    /// Interval used while the game is idle or in low activity.
+    pub poll_interval_idle: Duration,
+    /// Cooldown before downgrading from combat to normal.
+    pub combat_cooldown: Duration,
+    /// Cooldown before downgrading from normal activity to idle.
+    pub idle_cooldown: Duration,
+    /// Backoff used when the Live Client endpoints cannot be reached.
+    pub error_backoff: Duration,
 }
 
 impl Default for DaemonConfig {
@@ -23,6 +38,12 @@ impl Default for DaemonConfig {
         Self {
             heartbeat_interval: Duration::from_secs(1),
             live_base_url: "https://127.0.0.1:2999".to_string(),
+            poll_interval_combat: Duration::from_millis(150),
+            poll_interval_normal: Duration::from_millis(750),
+            poll_interval_idle: Duration::from_millis(1500),
+            combat_cooldown: Duration::from_secs(5),
+            idle_cooldown: Duration::from_secs(20),
+            error_backoff: Duration::from_secs(1),
         }
     }
 }
@@ -59,6 +80,12 @@ impl LiveDaemon {
     /// Returns a reference to the internal HTTP client.
     pub fn http_client(&self) -> &Client {
         &self.http
+    }
+
+    /// Spawn an asynchronous stream that polls the Live Client Data endpoints and emits
+    /// normalized event batches with adaptive scheduling.
+    pub fn live_events(&self) -> impl Stream<Item = Result<EventBatch>> + Send + 'static {
+        live_client::live_event_stream(self.config.clone(), self.http.clone())
     }
 
     /// Perform a lightweight bootstrap routine to prove that async runtime wiring works.
