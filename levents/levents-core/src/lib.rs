@@ -1,16 +1,18 @@
 //! Core runtime primitives for the levents daemon.
 
+mod lcu;
 mod live_client;
 
 use anyhow::Result;
 use futures_core::Stream;
 use levents_model::{
-    Event, EventBatch, EventKind, EventPayload, HeartbeatEvent, PlayerEvent, PlayerRef, Team,
+    Event, EventBatch, EventKind, EventPayload, GoldEvent, HeartbeatEvent, ItemEvent, LevelEvent,
+    PhaseEvent, PlayerEvent, PlayerRef, Team,
 };
 use parking_lot::Mutex;
 use reqwest::Client;
 use serde_json::{json, Value};
-use std::{sync::Arc, time::Duration};
+use std::{path::PathBuf, sync::Arc, time::Duration};
 use tokio::time::{sleep, Instant};
 use tracing::{debug, instrument, warn};
 
@@ -31,6 +33,12 @@ pub struct DaemonConfig {
     pub idle_cooldown: Duration,
     /// Backoff used when the Live Client endpoints cannot be reached.
     pub error_backoff: Duration,
+    /// Optional override pointing at the League Client lockfile location.
+    pub lcu_lockfile: Option<PathBuf>,
+    /// Interval used while the lockfile is missing; controls discovery polling.
+    pub lcu_discovery_interval: Duration,
+    /// Delay before attempting to reconnect after an LCU websocket disconnect.
+    pub lcu_retry_delay: Duration,
 }
 
 impl Default for DaemonConfig {
@@ -44,6 +52,9 @@ impl Default for DaemonConfig {
             combat_cooldown: Duration::from_secs(5),
             idle_cooldown: Duration::from_secs(20),
             error_backoff: Duration::from_secs(1),
+            lcu_lockfile: None,
+            lcu_discovery_interval: Duration::from_secs(1),
+            lcu_retry_delay: Duration::from_secs(2),
         }
     }
 }
@@ -86,6 +97,11 @@ impl LiveDaemon {
     /// normalized event batches with adaptive scheduling.
     pub fn live_events(&self) -> impl Stream<Item = Result<EventBatch>> + Send + 'static {
         live_client::live_event_stream(self.config.clone(), self.http.clone())
+    }
+
+    /// Spawn a websocket-backed stream that proxies LCU phase changes.
+    pub fn lcu_events(&self) -> impl Stream<Item = Result<EventBatch>> + Send + 'static {
+        lcu::lcu_event_stream(self.config.clone(), self.http.clone())
     }
 
     /// Perform a lightweight bootstrap routine to prove that async runtime wiring works.

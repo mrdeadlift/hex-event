@@ -180,7 +180,7 @@ impl PlayerRegistry {
 
             let slot = previous
                 .map(|snapshot| snapshot.reference.slot)
-                .unwrap_or_else(|| allocate_slot(team, &mut used_slots));
+                .unwrap_or_else(|| allocate_slot(team.clone(), &mut used_slots));
 
             used_slots.insert(slot);
 
@@ -625,7 +625,7 @@ fn push_item_events(
 ) {
     for _ in 0..count {
         events.push(Event {
-            kind,
+            kind: kind.clone(),
             ts: ts_ms,
             payload: EventPayload::PlayerItem(ItemEvent {
                 player: player.clone(),

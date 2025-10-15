@@ -16,7 +16,7 @@ authors = ["levents contributors"]
 [workspace.dependencies]
 anyhow = "1.0"
 serde = { version = "1.0", features = ["derive"] }
-tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "net"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
 reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"] }
@@ -27,3 +27,8 @@ async-stream = "0.3"
 parking_lot = "0.12"
 futures-core = "0.3"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
+base64 = "0.21"
+futures-util = "0.3"
+tokio-tungstenite = { version = "0.20", features = ["rustls-tls-webpki-roots"] }
+http = "0.2"
+rustls = { version = "0.21", features = ["dangerous_configuration"] }
