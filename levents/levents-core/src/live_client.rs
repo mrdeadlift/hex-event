@@ -128,6 +128,7 @@ impl PollContext {
         }
 
         events.sort_by_key(|event| event.ts);
+        deduplicate_events(&mut events);
 
         let next_delay = self.activity.on_poll(!events.is_empty(), &self.config);
         Ok(PollOutcome { events, next_delay })
@@ -614,6 +615,17 @@ fn normalize_events(raw_events: &[RawEvent], registry: &PlayerRegistry) -> Vec<E
     events
 }
 
+fn deduplicate_events(events: &mut Vec<Event>) {
+    let mut seen_respawns: HashSet<PlayerRef> = HashSet::new();
+
+    events.retain(|event| match (&event.kind, &event.payload) {
+        (EventKind::Respawn, EventPayload::Player(PlayerEvent { player })) => {
+            seen_respawns.insert(player.clone())
+        }
+        _ => true,
+    });
+}
+
 fn push_item_events(
     events: &mut Vec<Event>,
     ts_ms: u64,
@@ -775,6 +787,44 @@ mod tests {
         assert!(events.iter().any(|event| event.kind == EventKind::Kill));
         assert!(events.iter().any(|event| event.kind == EventKind::Death));
         assert!(events.iter().any(|event| event.kind == EventKind::Assist));
+    }
+
+    #[test]
+    fn deduplicate_filters_duplicate_respawns() {
+        let mut registry = PlayerRegistry::default();
+        let baseline = vec![make_player_entry("Alpha", "ORDER", 1, 500.0, true, vec![])];
+        assert!(registry.apply(baseline, 1_000).is_empty());
+
+        let updated = vec![make_player_entry("Alpha", "ORDER", 1, 500.0, false, vec![])];
+        let mut diff_events = registry.apply(updated, 2_000);
+        assert_eq!(diff_events.len(), 1);
+        assert!(matches!(diff_events[0].kind, EventKind::Respawn));
+
+        let raw = RawEvent {
+            event_id: 1,
+            event_name: "Respawn".to_string(),
+            event_time: 2.0,
+            killer_name: None,
+            victim_name: None,
+            assisters: Vec::new(),
+            summoner_name: Some("Alpha".to_string()),
+            level: None,
+            item_id: None,
+            item_name: None,
+        };
+
+        let mut raw_events = normalize_events(&[raw], &registry);
+        assert_eq!(raw_events.len(), 1);
+        assert!(matches!(raw_events[0].kind, EventKind::Respawn));
+
+        diff_events.append(&mut raw_events);
+        deduplicate_events(&mut diff_events);
+
+        let respawns = diff_events
+            .into_iter()
+            .filter(|event| event.kind == EventKind::Respawn)
+            .count();
+        assert_eq!(respawns, 1);
     }
 
     #[test]
