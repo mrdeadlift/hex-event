@@ -1,0 +1,102 @@
+syntax = "proto3";
+
+package levents.v1;
+
+enum Team {
+  TEAM_UNSPECIFIED = 0;
+  TEAM_ORDER = 1;
+  TEAM_CHAOS = 2;
+  TEAM_NEUTRAL = 3;
+}
+
+enum EventKind {
+  EVENT_KIND_UNSPECIFIED = 0;
+  EVENT_KIND_KILL = 1;
+  EVENT_KIND_DEATH = 2;
+  EVENT_KIND_ASSIST = 3;
+  EVENT_KIND_LEVEL_UP = 4;
+  EVENT_KIND_ITEM_ADDED = 5;
+  EVENT_KIND_ITEM_REMOVED = 6;
+  EVENT_KIND_GOLD_DELTA = 7;
+  EVENT_KIND_RESPAWN = 8;
+  EVENT_KIND_PHASE_CHANGE = 9;
+  EVENT_KIND_HEARTBEAT = 10;
+}
+
+message PlayerRef {
+  string summoner_name = 1;
+  Team team = 2;
+  uint32 slot = 3;
+}
+
+message PlayerEvent {
+  PlayerRef player = 1;
+}
+
+message ItemEvent {
+  PlayerRef player = 1;
+  uint32 item_id = 2;
+  optional string item_name = 3;
+}
+
+message LevelEvent {
+  PlayerRef player = 1;
+  uint32 level = 2;
+}
+
+message GoldEvent {
+  PlayerRef player = 1;
+  int32 delta = 2;
+  int32 total = 3;
+}
+
+message PhaseEvent {
+  string phase = 1;
+}
+
+message HeartbeatEvent {
+  uint64 seq = 1;
+}
+
+message CustomEvent {
+  string json = 1;
+}
+
+message Event {
+  EventKind kind = 1;
+  uint64 ts = 2;
+
+  oneof payload {
+    PlayerEvent player = 3;
+    ItemEvent player_item = 4;
+    LevelEvent player_level = 5;
+    GoldEvent player_gold = 6;
+    PhaseEvent phase = 7;
+    HeartbeatEvent heartbeat = 8;
+    CustomEvent custom = 9;
+  }
+}
+
+message SubscribeRequest {
+  repeated EventKind kinds = 1;
+}
+
+message EmitSyntheticKill {
+  string summoner_name = 1;
+}
+
+message ControlRequest {
+  oneof command {
+    EmitSyntheticKill emit_synthetic_kill = 1;
+  }
+}
+
+message ControlResponse {
+  bool accepted = 1;
+  string message = 2;
+}
+
+service EventService {
+  rpc Subscribe(SubscribeRequest) returns (stream Event);
+  rpc Control(ControlRequest) returns (ControlResponse);
+}

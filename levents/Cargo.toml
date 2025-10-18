@@ -16,7 +16,7 @@ authors = ["levents contributors"]
 [workspace.dependencies]
 anyhow = "1.0"
 serde = { version = "1.0", features = ["derive"] }
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "net"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "net", "sync"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
 reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"] }

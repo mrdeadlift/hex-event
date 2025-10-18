@@ -1,16 +1,22 @@
-use anyhow::Result;
+use std::net::SocketAddr;
+
+use anyhow::{Context, Result};
 use levents_core::{DaemonConfig, LiveDaemon};
-use tracing::info;
+
+mod grpc;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     init_tracing();
 
     let daemon = LiveDaemon::new(DaemonConfig::default());
-    let batch = daemon.bootstrap().await?;
-    info!(events = batch.events.len(), "daemon bootstrap complete");
 
-    Ok(())
+    let addr: SocketAddr = std::env::var("LEVENTS_GRPC_ADDR")
+        .unwrap_or_else(|_| "127.0.0.1:50051".to_string())
+        .parse()
+        .context("failed to parse LEVENTS_GRPC_ADDR")?;
+
+    grpc::serve(daemon, addr).await
 }
 
 fn init_tracing() {
