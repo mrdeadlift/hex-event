@@ -16,6 +16,19 @@ async function main(): Promise<void> {
     }
   });
 
+  client.on("itemAdded", (event) => {
+    if (event.payload.payloadKind === "playerItem") {
+      const { summonerName, team, slot } = event.payload.player;
+      const { itemId, itemName } = event.payload;
+      // eslint-disable-next-line no-console
+      console.log(
+        `[itemAdded] ${summonerName} (${team} ${slot}) -> ${itemName ?? "#"}${
+          itemName ? "" : itemId
+        }`
+      );
+    }
+  });
+
   client.on("phaseChange", (event) => {
     if (event.payload.payloadKind === "phase") {
       // eslint-disable-next-line no-console

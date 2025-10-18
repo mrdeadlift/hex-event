@@ -462,13 +462,6 @@ function convertGrpcEvent(message: GrpcEvent): Event {
 }
 
 function convertGrpcPayload(message: GrpcEvent): EventPayload {
-  if (message.player) {
-    return {
-      payloadKind: "player",
-      player: convertGrpcPlayerRef(message.player.player),
-    };
-  }
-
   if (message.playerItem) {
     return {
       payloadKind: "playerItem",
@@ -492,6 +485,13 @@ function convertGrpcPayload(message: GrpcEvent): EventPayload {
       player: convertGrpcPlayerRef(message.playerGold.player),
       delta: normalizeNumber(message.playerGold.delta, "delta"),
       total: normalizeNumber(message.playerGold.total, "total"),
+    };
+  }
+
+  if (message.player) {
+    return {
+      payloadKind: "player",
+      player: convertGrpcPlayerRef(message.player.player),
     };
   }
 
