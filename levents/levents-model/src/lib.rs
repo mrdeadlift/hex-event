@@ -125,7 +125,7 @@ mod tests {
         };
 
         let json = serde_json::to_string(&event).expect("serialize");
-        assert!(json.contains("\"kind\":\"Kill\""));
+        assert!(json.contains("\"kind\":\"kill\""));
         let back: Event = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(back.kind, EventKind::Kill);
     }
@@ -137,6 +137,6 @@ mod tests {
         let enums = value["definitions"]["EventKind"]["enum"]
             .as_array()
             .expect("enum array");
-        assert!(enums.iter().any(|value| value == "Kill"));
+        assert!(enums.iter().any(|value| value == "kill"));
     }
 }

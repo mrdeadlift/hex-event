@@ -190,7 +190,7 @@ fn allowed_kinds(request: &SubscribeRequest) -> Option<HashSet<EventKindProto>> 
         .kinds
         .iter()
         .filter_map(|value| EventKindProto::from_i32(*value))
-        .filter(|kind| *kind != EventKindProto::EventKindUnspecified)
+        .filter(|kind| *kind != EventKindProto::Unspecified)
         .collect();
 
     if kinds.is_empty() {
@@ -247,23 +247,23 @@ fn convert_player_ref(reference: PlayerRef) -> pb::PlayerRef {
 
 fn map_event_kind(kind: &EventKind) -> EventKindProto {
     match kind {
-        EventKind::Kill => EventKindProto::EventKindKill,
-        EventKind::Death => EventKindProto::EventKindDeath,
-        EventKind::Assist => EventKindProto::EventKindAssist,
-        EventKind::LevelUp => EventKindProto::EventKindLevelUp,
-        EventKind::ItemAdded => EventKindProto::EventKindItemAdded,
-        EventKind::ItemRemoved => EventKindProto::EventKindItemRemoved,
-        EventKind::GoldDelta => EventKindProto::EventKindGoldDelta,
-        EventKind::Respawn => EventKindProto::EventKindRespawn,
-        EventKind::PhaseChange => EventKindProto::EventKindPhaseChange,
-        EventKind::Heartbeat => EventKindProto::EventKindHeartbeat,
+        EventKind::Kill => EventKindProto::Kill,
+        EventKind::Death => EventKindProto::Death,
+        EventKind::Assist => EventKindProto::Assist,
+        EventKind::LevelUp => EventKindProto::LevelUp,
+        EventKind::ItemAdded => EventKindProto::ItemAdded,
+        EventKind::ItemRemoved => EventKindProto::ItemRemoved,
+        EventKind::GoldDelta => EventKindProto::GoldDelta,
+        EventKind::Respawn => EventKindProto::Respawn,
+        EventKind::PhaseChange => EventKindProto::PhaseChange,
+        EventKind::Heartbeat => EventKindProto::Heartbeat,
     }
 }
 
 fn map_team(team: Team) -> TeamProto {
     match team {
-        Team::Order => TeamProto::TeamOrder,
-        Team::Chaos => TeamProto::TeamChaos,
-        Team::Neutral => TeamProto::TeamNeutral,
+        Team::Order => TeamProto::Order,
+        Team::Chaos => TeamProto::Chaos,
+        Team::Neutral => TeamProto::Neutral,
     }
 }

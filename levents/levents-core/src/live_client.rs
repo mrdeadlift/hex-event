@@ -466,11 +466,11 @@ struct RawEvent {
     #[serde(rename = "SummonerName")]
     summoner_name: Option<String>,
     #[serde(rename = "Level")]
-    level: Option<u32>,
+    _level: Option<u32>,
     #[serde(rename = "ItemID")]
-    item_id: Option<u32>,
+    _item_id: Option<u32>,
     #[serde(rename = "ItemName")]
-    item_name: Option<String>,
+    _item_name: Option<String>,
 }
 
 #[derive(Debug)]
