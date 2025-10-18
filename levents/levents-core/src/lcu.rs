@@ -164,13 +164,13 @@ async fn subscribe(
         tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
     >,
 ) -> Result<()> {
-    let payload = Message::Text("[\"subscribe\",\"OnJsonApiEvent\"]".to_string());
+    let payload = Message::Text("[5,\"OnJsonApiEvent\"]".to_string());
     socket
         .send(payload)
         .await
         .context("subscribe OnJsonApiEvent")?;
 
-    let gameflow_payload = Message::Text(format!("[\"subscribe\",\"{GAMEFLOW_URI}\"]"));
+    let gameflow_payload = Message::Text(format!("[5,\"{GAMEFLOW_URI}\"]"));
     if let Err(error) = socket.send(gameflow_payload).await {
         trace!(?error, "secondary subscription failed");
     }
