@@ -2,7 +2,8 @@ export { createClient, LeventsClient } from './client.js';
 export type {
   ClientOptions,
   LiveConfig,
-  LcuConfig
+  LcuConfig,
+  ResolvedClientOptions
 } from './client.js';
 export type {
   Event,

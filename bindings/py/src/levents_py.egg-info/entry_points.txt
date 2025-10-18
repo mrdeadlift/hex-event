@@ -1,0 +1,2 @@
+[console_scripts]
+levents = levents.cli:app

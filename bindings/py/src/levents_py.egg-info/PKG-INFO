@@ -1,0 +1,21 @@
+Metadata-Version: 2.4
+Name: levents-py
+Version: 0.0.1
+Summary: Python client SDK for the levents daemon
+Author: levents contributors
+License: MIT
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: grpcio>=1.66.1
+Requires-Dist: pydantic>=2.9.2
+Requires-Dist: typer>=0.12.5
+Provides-Extra: dev
+Requires-Dist: black>=24.8.0; extra == "dev"
+Requires-Dist: mypy>=1.12.1; extra == "dev"
+Requires-Dist: pytest>=8.3.3; extra == "dev"
+
+# levents-py
+
+Experimental Python bindings for the levents daemon. The package currently offers a simple
+in-memory event bus that mirrors the public API that will eventually forward gRPC streams from the
+Rust daemon.

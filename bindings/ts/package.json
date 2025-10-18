@@ -11,6 +11,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "postbuild": "node -e \"const fs=require('fs');const path=require('path');const src=path.join(process.cwd(),'proto');const dest=path.join(process.cwd(),'dist','proto');if(!fs.existsSync(src)){process.exit(0);}fs.rmSync(dest,{recursive:true,force:true});fs.mkdirSync(path.dirname(dest),{recursive:true});fs.cpSync(src,dest,{recursive:true});\"",
     "lint": "eslint \"src/**/*.ts\"",
     "test": "node --test",
     "example:basic": "ts-node --esm examples/node/basic.ts"
@@ -19,7 +20,8 @@
     "@grpc/grpc-js": "^1.11.0"
   },
   "dependencies": {
-    "@grpc/grpc-js": "^1.11.0"
+    "@grpc/grpc-js": "^1.11.0",
+    "@grpc/proto-loader": "^0.7.13"
   },
   "devDependencies": {
     "@types/node": "^20.16.9",
