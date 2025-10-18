@@ -1,6 +1,7 @@
-import { EventEmitter } from 'node:events';
-import { fileURLToPath } from 'node:url';
-import path from 'node:path';
+import { EventEmitter } from "node:events";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+import { existsSync } from "node:fs";
 import {
   credentials as grpcCredentials,
   Client,
@@ -8,28 +9,58 @@ import {
   type ChannelCredentials,
   type ClientReadableStream,
   type Metadata,
-  type ServiceError
-} from '@grpc/grpc-js';
-import * as grpc from '@grpc/grpc-js';
-import * as protoLoader from '@grpc/proto-loader';
-import type { Event, EventKind, EventPayload, PlayerRef } from './types.js';
+  type ServiceError,
+} from "@grpc/grpc-js";
+import * as grpc from "@grpc/grpc-js";
+import * as protoLoader from "@grpc/proto-loader";
+import type { Event, EventKind, EventPayload, PlayerRef } from "./types.js";
 
-const PROTO_PATH = fileURLToPath(new URL('../proto/events.proto', import.meta.url));
+// Resolve proto path - handle both ts-node (src/) and built (dist/) contexts
+function resolveProtoPath(): string {
+  // Try relative to current module (works for built dist/)
+  const distPath = fileURLToPath(
+    new URL("../proto/events.proto", import.meta.url)
+  );
+  if (existsSync(distPath)) {
+    return distPath;
+  }
+
+  // Try relative to src/ directory (works for ts-node)
+  const currentFile = fileURLToPath(import.meta.url);
+  const srcDir = path.dirname(currentFile);
+  const srcPath = path.join(srcDir, "..", "proto", "events.proto");
+  if (existsSync(srcPath)) {
+    return srcPath;
+  }
+
+  throw new Error(
+    `Could not locate events.proto. Tried: ${distPath}, ${srcPath}`
+  );
+}
+
+const PROTO_PATH = resolveProtoPath();
 
 const LOADER_OPTIONS: protoLoader.Options = {
   keepCase: false,
   longs: String,
   enums: String,
   defaults: true,
-  oneofs: true
+  oneofs: true,
 };
 
 const packageDefinition = protoLoader.loadSync(PROTO_PATH, LOADER_OPTIONS);
-const grpcDescriptor = grpc.loadPackageDefinition(packageDefinition) as unknown as ProtoGrpcType;
+const grpcDescriptor = grpc.loadPackageDefinition(
+  packageDefinition
+) as unknown as ProtoGrpcType;
 const EventServiceClientCtor = grpcDescriptor?.levents?.v1?.EventService;
 
 if (!EventServiceClientCtor) {
-  throw new Error(`Failed to load EventService definition from ${path.relative(process.cwd(), PROTO_PATH)}`);
+  throw new Error(
+    `Failed to load EventService definition from ${path.relative(
+      process.cwd(),
+      PROTO_PATH
+    )}`
+  );
 }
 
 export interface LiveConfig {
@@ -51,7 +82,9 @@ export interface ClientOptions {
   reconnectMaxDelayMs?: number;
 }
 
-type EventHandler<T extends EventPayload = EventPayload> = (event: Event<T>) => void;
+type EventHandler<T extends EventPayload = EventPayload> = (
+  event: Event<T>
+) => void;
 type ErrorHandler = (error: Error) => void;
 
 interface ResolvedLiveConfig {
@@ -87,7 +120,10 @@ interface EventServiceClient extends Client {
     metadata?: Metadata,
     options?: Partial<CallOptions>
   ): ClientReadableStream<GrpcEvent>;
-  subscribe(request: SubscribeRequest, options?: Partial<CallOptions>): ClientReadableStream<GrpcEvent>;
+  subscribe(
+    request: SubscribeRequest,
+    options?: Partial<CallOptions>
+  ): ClientReadableStream<GrpcEvent>;
 }
 
 type EventServiceClientConstructor = new (
@@ -152,63 +188,63 @@ interface GrpcEvent {
 }
 
 const EVENT_KIND_FROM_STRING: Record<string, EventKind> = {
-  EVENT_KIND_KILL: 'kill',
-  EVENT_KIND_DEATH: 'death',
-  EVENT_KIND_ASSIST: 'assist',
-  EVENT_KIND_LEVEL_UP: 'levelUp',
-  EVENT_KIND_ITEM_ADDED: 'itemAdded',
-  EVENT_KIND_ITEM_REMOVED: 'itemRemoved',
-  EVENT_KIND_GOLD_DELTA: 'goldDelta',
-  EVENT_KIND_RESPAWN: 'respawn',
-  EVENT_KIND_PHASE_CHANGE: 'phaseChange',
-  EVENT_KIND_HEARTBEAT: 'heartbeat'
+  EVENT_KIND_KILL: "kill",
+  EVENT_KIND_DEATH: "death",
+  EVENT_KIND_ASSIST: "assist",
+  EVENT_KIND_LEVEL_UP: "levelUp",
+  EVENT_KIND_ITEM_ADDED: "itemAdded",
+  EVENT_KIND_ITEM_REMOVED: "itemRemoved",
+  EVENT_KIND_GOLD_DELTA: "goldDelta",
+  EVENT_KIND_RESPAWN: "respawn",
+  EVENT_KIND_PHASE_CHANGE: "phaseChange",
+  EVENT_KIND_HEARTBEAT: "heartbeat",
 };
 
 const EVENT_KIND_FROM_NUMBER: Record<number, EventKind> = {
-  1: 'kill',
-  2: 'death',
-  3: 'assist',
-  4: 'levelUp',
-  5: 'itemAdded',
-  6: 'itemRemoved',
-  7: 'goldDelta',
-  8: 'respawn',
-  9: 'phaseChange',
-  10: 'heartbeat'
+  1: "kill",
+  2: "death",
+  3: "assist",
+  4: "levelUp",
+  5: "itemAdded",
+  6: "itemRemoved",
+  7: "goldDelta",
+  8: "respawn",
+  9: "phaseChange",
+  10: "heartbeat",
 };
 
-const TEAM_FROM_STRING: Record<string, PlayerRef['team']> = {
-  TEAM_UNSPECIFIED: 'neutral',
-  TEAM_ORDER: 'order',
-  TEAM_CHAOS: 'chaos',
-  TEAM_NEUTRAL: 'neutral'
+const TEAM_FROM_STRING: Record<string, PlayerRef["team"]> = {
+  TEAM_UNSPECIFIED: "neutral",
+  TEAM_ORDER: "order",
+  TEAM_CHAOS: "chaos",
+  TEAM_NEUTRAL: "neutral",
 };
 
-const TEAM_FROM_NUMBER: Record<number, PlayerRef['team']> = {
-  0: 'neutral',
-  1: 'order',
-  2: 'chaos',
-  3: 'neutral'
+const TEAM_FROM_NUMBER: Record<number, PlayerRef["team"]> = {
+  0: "neutral",
+  1: "order",
+  2: "chaos",
+  3: "neutral",
 };
 
 function resolveOptions(options: ClientOptions): ResolvedClientOptions {
   const live: ResolvedLiveConfig = {
     enabled: options.live?.enabled ?? true,
-    intervalBaseMs: options.live?.intervalBaseMs ?? 750
+    intervalBaseMs: options.live?.intervalBaseMs ?? 750,
   };
 
   const lcu: ResolvedLcuConfig = {
-    enabled: options.lcu?.enabled ?? true
+    enabled: options.lcu?.enabled ?? true,
   };
 
   return {
     live,
     lcu,
-    endpoint: options.endpoint ?? '127.0.0.1:50051',
+    endpoint: options.endpoint ?? "127.0.0.1:50051",
     useTls: options.useTls ?? false,
     connectionTimeoutMs: options.connectionTimeoutMs ?? 5_000,
     reconnectInitialDelayMs: options.reconnectInitialDelayMs ?? 1_000,
-    reconnectMaxDelayMs: options.reconnectMaxDelayMs ?? 10_000
+    reconnectMaxDelayMs: options.reconnectMaxDelayMs ?? 10_000,
   };
 }
 
@@ -254,20 +290,26 @@ export class LeventsClient {
     this.startStream();
   }
 
-  on<T extends EventPayload = EventPayload>(kind: EventKind, handler: EventHandler<T>): void {
+  on<T extends EventPayload = EventPayload>(
+    kind: EventKind,
+    handler: EventHandler<T>
+  ): void {
     this.emitter.on(kind, handler as EventHandler);
   }
 
-  off<T extends EventPayload = EventPayload>(kind: EventKind, handler: EventHandler<T>): void {
+  off<T extends EventPayload = EventPayload>(
+    kind: EventKind,
+    handler: EventHandler<T>
+  ): void {
     this.emitter.off(kind, handler as EventHandler);
   }
 
   onError(handler: ErrorHandler): void {
-    this.emitter.on('error', handler);
+    this.emitter.on("error", handler);
   }
 
   offError(handler: ErrorHandler): void {
-    this.emitter.off('error', handler);
+    this.emitter.off("error", handler);
   }
 
   /**
@@ -302,10 +344,14 @@ export class LeventsClient {
       ? grpcCredentials.createSsl()
       : grpcCredentials.createInsecure();
 
-    const client = new EventServiceClientCtor(this.options.endpoint, channelCredentials, {
-      'grpc.keepalive_time_ms': 30_000,
-      'grpc.keepalive_timeout_ms': 5_000
-    });
+    const client = new EventServiceClientCtor(
+      this.options.endpoint,
+      channelCredentials,
+      {
+        "grpc.keepalive_time_ms": 30_000,
+        "grpc.keepalive_timeout_ms": 5_000,
+      }
+    );
     this.client = client;
     return client;
   }
@@ -322,7 +368,7 @@ export class LeventsClient {
     const stream = client.subscribe({ kinds: [] });
     this.stream = stream;
 
-    stream.on('data', (message) => {
+    stream.on("data", (message) => {
       try {
         const event = convertGrpcEvent(message);
         this.emitter.emit(event.kind, event);
@@ -331,7 +377,7 @@ export class LeventsClient {
       }
     });
 
-    stream.on('error', (error) => {
+    stream.on("error", (error) => {
       if (this.shuttingDown) {
         return;
       }
@@ -340,7 +386,7 @@ export class LeventsClient {
       this.scheduleReconnect();
     });
 
-    stream.on('end', () => {
+    stream.on("end", () => {
       if (this.shuttingDown) {
         return;
       }
@@ -348,7 +394,7 @@ export class LeventsClient {
       this.scheduleReconnect();
     });
 
-    stream.on('close', () => {
+    stream.on("close", () => {
       if (this.shuttingDown) {
         return;
       }
@@ -396,19 +442,20 @@ export class LeventsClient {
   }
 
   private notifyError(reason: unknown): void {
-    if (this.emitter.listenerCount('error') > 0) {
-      const error = reason instanceof Error ? reason : new Error(String(reason));
-      this.emitter.emit('error', error);
+    if (this.emitter.listenerCount("error") > 0) {
+      const error =
+        reason instanceof Error ? reason : new Error(String(reason));
+      this.emitter.emit("error", error);
     } else if (reason) {
       // eslint-disable-next-line no-console
-      console.error('[levents] gRPC client error', reason);
+      console.error("[levents] gRPC client error", reason);
     }
   }
 }
 
 function convertGrpcEvent(message: GrpcEvent): Event {
   const kind = normalizeEventKind(message.kind);
-  const ts = normalizeNumber(message.ts, 'ts');
+  const ts = normalizeNumber(message.ts, "ts");
   const payload = convertGrpcPayload(message);
 
   return { kind, ts, payload };
@@ -417,84 +464,84 @@ function convertGrpcEvent(message: GrpcEvent): Event {
 function convertGrpcPayload(message: GrpcEvent): EventPayload {
   if (message.player) {
     return {
-      payloadKind: 'player',
-      player: convertGrpcPlayerRef(message.player.player)
+      payloadKind: "player",
+      player: convertGrpcPlayerRef(message.player.player),
     };
   }
 
   if (message.playerItem) {
     return {
-      payloadKind: 'playerItem',
+      payloadKind: "playerItem",
       player: convertGrpcPlayerRef(message.playerItem.player),
-      itemId: normalizeNumber(message.playerItem.itemId, 'itemId'),
-      itemName: message.playerItem.itemName ?? undefined
+      itemId: normalizeNumber(message.playerItem.itemId, "itemId"),
+      itemName: message.playerItem.itemName ?? undefined,
     };
   }
 
   if (message.playerLevel) {
     return {
-      payloadKind: 'playerLevel',
+      payloadKind: "playerLevel",
       player: convertGrpcPlayerRef(message.playerLevel.player),
-      level: normalizeNumber(message.playerLevel.level, 'level')
+      level: normalizeNumber(message.playerLevel.level, "level"),
     };
   }
 
   if (message.playerGold) {
     return {
-      payloadKind: 'playerGold',
+      payloadKind: "playerGold",
       player: convertGrpcPlayerRef(message.playerGold.player),
-      delta: normalizeNumber(message.playerGold.delta, 'delta'),
-      total: normalizeNumber(message.playerGold.total, 'total')
+      delta: normalizeNumber(message.playerGold.delta, "delta"),
+      total: normalizeNumber(message.playerGold.total, "total"),
     };
   }
 
   if (message.phase) {
     const phase = message.phase.phase;
     if (phase === undefined) {
-      throw new Error('Missing phase value on event payload');
+      throw new Error("Missing phase value on event payload");
     }
     return {
-      payloadKind: 'phase',
-      phase
+      payloadKind: "phase",
+      phase,
     };
   }
 
   if (message.heartbeat) {
     return {
-      payloadKind: 'heartbeat',
-      seq: normalizeNumber(message.heartbeat.seq, 'seq')
+      payloadKind: "heartbeat",
+      seq: normalizeNumber(message.heartbeat.seq, "seq"),
     };
   }
 
   if (message.custom) {
     return {
-      payloadKind: 'custom',
-      data: parseCustomPayload(message.custom)
+      payloadKind: "custom",
+      data: parseCustomPayload(message.custom),
     };
   }
 
-  throw new Error('Received event without a recognised payload');
+  throw new Error("Received event without a recognised payload");
 }
 
 function convertGrpcPlayerRef(player?: GrpcPlayerRef): PlayerRef {
   if (!player) {
-    throw new Error('Missing player information on event payload');
+    throw new Error("Missing player information on event payload");
   }
 
   return {
-    summonerName: player.summonerName ?? '',
+    summonerName: player.summonerName ?? "",
     team: normalizeTeam(player.team),
-    slot: normalizeNumber(player.slot, 'slot')
+    slot: normalizeNumber(player.slot, "slot"),
   };
 }
 
 function normalizeEventKind(value: string | number | undefined): EventKind {
-  if (typeof value === 'string') {
+  if (typeof value === "string") {
     const result = EVENT_KIND_FROM_STRING[value];
     if (result) {
       return result;
     }
-  } else if (typeof value === 'number') {
+  } else if (typeof value === "number") {
     const result = EVENT_KIND_FROM_NUMBER[value];
     if (result) {
       return result;
@@ -504,13 +551,13 @@ function normalizeEventKind(value: string | number | undefined): EventKind {
   throw new Error(`Unsupported event kind: ${value as string}`);
 }
 
-function normalizeTeam(value: string | number | undefined): PlayerRef['team'] {
-  if (typeof value === 'string') {
+function normalizeTeam(value: string | number | undefined): PlayerRef["team"] {
+  if (typeof value === "string") {
     const result = TEAM_FROM_STRING[value];
     if (result) {
       return result;
     }
-  } else if (typeof value === 'number') {
+  } else if (typeof value === "number") {
     const result = TEAM_FROM_NUMBER[value];
     if (result) {
       return result;
@@ -520,11 +567,14 @@ function normalizeTeam(value: string | number | undefined): PlayerRef['team'] {
   throw new Error(`Unsupported team value: ${value as string}`);
 }
 
-function normalizeNumber(value: string | number | undefined, label: string): number {
-  if (typeof value === 'number') {
+function normalizeNumber(
+  value: string | number | undefined,
+  label: string
+): number {
+  if (typeof value === "number") {
     return value;
   }
-  if (typeof value === 'string') {
+  if (typeof value === "string") {
     const parsed = Number(value);
     if (!Number.isNaN(parsed)) {
       return parsed;
@@ -540,12 +590,12 @@ function parseCustomPayload(payload: GrpcCustomEvent): Record<string, unknown> {
 
   try {
     const parsed = JSON.parse(payload.json);
-    if (parsed && typeof parsed === 'object') {
+    if (parsed && typeof parsed === "object") {
       return parsed as Record<string, unknown>;
     }
     return {};
   } catch (error) {
-    throw new Error('Failed to parse custom payload JSON', { cause: error });
+    throw new Error("Failed to parse custom payload JSON", { cause: error });
   }
 }
 
