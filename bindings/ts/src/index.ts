@@ -13,6 +13,7 @@ export type {
   PlayerEventPayload,
   ItemEventPayload,
   LevelEventPayload,
+  SkillLevelEventPayload,
   GoldEventPayload,
   PhaseEventPayload,
   HeartbeatEventPayload,

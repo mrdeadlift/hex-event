@@ -157,6 +157,12 @@ interface GrpcLevelEvent {
   level?: number | string;
 }
 
+interface GrpcSkillLevelEvent {
+  player?: GrpcPlayerRef;
+  ability?: number | string;
+  level?: number | string;
+}
+
 interface GrpcGoldEvent {
   player?: GrpcPlayerRef;
   delta?: number | string;
@@ -181,6 +187,7 @@ interface GrpcEvent {
   player?: GrpcPlayerEvent;
   playerItem?: GrpcItemEvent;
   playerLevel?: GrpcLevelEvent;
+  playerSkillLevel?: GrpcSkillLevelEvent;
   playerGold?: GrpcGoldEvent;
   phase?: GrpcPhaseEvent;
   heartbeat?: GrpcHeartbeatEvent;
@@ -192,6 +199,7 @@ const EVENT_KIND_FROM_STRING: Record<string, EventKind> = {
   EVENT_KIND_DEATH: "death",
   EVENT_KIND_ASSIST: "assist",
   EVENT_KIND_LEVEL_UP: "levelUp",
+  EVENT_KIND_SKILL_LEVEL_UP: "skillLevelUp",
   EVENT_KIND_ITEM_ADDED: "itemAdded",
   EVENT_KIND_ITEM_REMOVED: "itemRemoved",
   EVENT_KIND_GOLD_DELTA: "goldDelta",
@@ -205,12 +213,28 @@ const EVENT_KIND_FROM_NUMBER: Record<number, EventKind> = {
   2: "death",
   3: "assist",
   4: "levelUp",
+  11: "skillLevelUp",
   5: "itemAdded",
   6: "itemRemoved",
   7: "goldDelta",
   8: "respawn",
   9: "phaseChange",
   10: "heartbeat",
+};
+
+const ABILITY_FROM_STRING: Record<string, "q" | "w" | "e" | "r"> = {
+  ABILITY_SLOT_UNSPECIFIED: "q",
+  ABILITY_SLOT_Q: "q",
+  ABILITY_SLOT_W: "w",
+  ABILITY_SLOT_E: "e",
+  ABILITY_SLOT_R: "r",
+};
+
+const ABILITY_FROM_NUMBER: Record<number, "q" | "w" | "e" | "r"> = {
+  1: "q",
+  2: "w",
+  3: "e",
+  4: "r",
 };
 
 const TEAM_FROM_STRING: Record<string, PlayerRef["team"]> = {
@@ -479,6 +503,15 @@ function convertGrpcPayload(message: GrpcEvent): EventPayload {
     };
   }
 
+  if (message.playerSkillLevel) {
+    return {
+      payloadKind: "playerSkillLevel",
+      player: convertGrpcPlayerRef(message.playerSkillLevel.player),
+      ability: normalizeAbility(message.playerSkillLevel.ability),
+      level: normalizeNumber(message.playerSkillLevel.level, "level"),
+    };
+  }
+
   if (message.playerGold) {
     return {
       payloadKind: "playerGold",
@@ -597,6 +630,24 @@ function parseCustomPayload(payload: GrpcCustomEvent): Record<string, unknown> {
   } catch (error) {
     throw new Error("Failed to parse custom payload JSON", { cause: error });
   }
+}
+
+function normalizeAbility(
+  value: string | number | undefined
+): "q" | "w" | "e" | "r" {
+  if (typeof value === "string") {
+    const result = ABILITY_FROM_STRING[value];
+    if (result) {
+      return result;
+    }
+  } else if (typeof value === "number") {
+    const result = ABILITY_FROM_NUMBER[value];
+    if (result) {
+      return result;
+    }
+  }
+  // Default to 'q' if undefined or unknown, but this should not happen.
+  return "q";
 }
 
 export function createClient(options: ClientOptions = {}): LeventsClient {

@@ -13,6 +13,7 @@ class EventKind(str, Enum):
     DEATH = "death"
     ASSIST = "assist"
     LEVEL_UP = "levelUp"
+    SKILL_LEVEL_UP = "skillLevelUp"
     ITEM_ADDED = "itemAdded"
     ITEM_REMOVED = "itemRemoved"
     GOLD_DELTA = "goldDelta"
@@ -45,6 +46,13 @@ class LevelEvent(BaseModel):
     level: int
 
 
+class SkillLevelEvent(BaseModel):
+    payload_kind: str = Field("playerSkillLevel", alias="payloadKind")
+    player: PlayerRef
+    ability: str
+    level: int
+
+
 class GoldEvent(BaseModel):
     payload_kind: str = Field("playerGold", alias="payloadKind")
     player: PlayerRef
@@ -71,6 +79,7 @@ EventPayload = Union[
     PlayerEvent,
     ItemEvent,
     LevelEvent,
+    SkillLevelEvent,
     GoldEvent,
     PhaseEvent,
     HeartbeatEvent,

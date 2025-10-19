@@ -3,6 +3,7 @@ export type EventKind =
   | 'death'
   | 'assist'
   | 'levelUp'
+  | 'skillLevelUp'
   | 'itemAdded'
   | 'itemRemoved'
   | 'goldDelta'
@@ -38,6 +39,13 @@ export interface LevelEventPayload {
   level: number;
 }
 
+export interface SkillLevelEventPayload {
+  payloadKind: 'playerSkillLevel';
+  player: PlayerRef;
+  ability: 'q' | 'w' | 'e' | 'r';
+  level: number;
+}
+
 export interface GoldEventPayload {
   payloadKind: 'playerGold';
   player: PlayerRef;
@@ -64,6 +72,7 @@ export type EventPayload =
   | PlayerEventPayload
   | ItemEventPayload
   | LevelEventPayload
+  | SkillLevelEventPayload
   | GoldEventPayload
   | PhaseEventPayload
   | HeartbeatEventPayload

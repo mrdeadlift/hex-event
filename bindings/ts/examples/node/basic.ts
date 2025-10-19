@@ -36,6 +36,17 @@ async function main(): Promise<void> {
     }
   });
 
+  client.on("skillLevelUp", (event) => {
+    if (event.payload.payloadKind === "playerSkillLevel") {
+      const { summonerName } = event.payload.player;
+      const { ability, level } = event.payload;
+      // eslint-disable-next-line no-console
+      console.log(
+        `[skill] ${summonerName} upgraded ${ability.toUpperCase()} -> ${level}`
+      );
+    }
+  });
+
   await client.connect();
   // eslint-disable-next-line no-console
   console.log("Connected to levents daemon; waiting for events...");
