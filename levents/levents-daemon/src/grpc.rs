@@ -3,7 +3,7 @@ use std::{collections::HashSet, net::SocketAddr, sync::Arc};
 use anyhow::{Context, Result};
 use futures_util::StreamExt;
 use levents_core::LiveDaemon;
-use levents_model::{Event, EventBatch, EventKind, EventPayload, PlayerRef, Team};
+use levents_model::{AbilitySlot, Event, EventBatch, EventKind, EventPayload, PlayerRef, Team};
 use tokio::sync::broadcast;
 use tokio_stream::wrappers::{errors::BroadcastStreamRecvError, BroadcastStream};
 use tonic::{transport::Server, Request, Response, Status};
@@ -214,6 +214,13 @@ fn convert_event(event: Event) -> Result<EventProto, serde_json::Error> {
             player: Some(convert_player_ref(inner.player)),
             level: inner.level as u32,
         })),
+        EventPayload::PlayerSkillLevel(inner) => Some(EventPayloadProto::PlayerSkillLevel(
+            pb::SkillLevelEvent {
+                player: Some(convert_player_ref(inner.player)),
+                ability: map_ability(inner.ability) as i32,
+                level: inner.level as u32,
+            },
+        )),
         EventPayload::PlayerGold(inner) => Some(EventPayloadProto::PlayerGold(pb::GoldEvent {
             player: Some(convert_player_ref(inner.player)),
             delta: inner.delta,
@@ -251,6 +258,7 @@ fn map_event_kind(kind: &EventKind) -> EventKindProto {
         EventKind::Death => EventKindProto::Death,
         EventKind::Assist => EventKindProto::Assist,
         EventKind::LevelUp => EventKindProto::LevelUp,
+        EventKind::SkillLevelUp => EventKindProto::SkillLevelUp,
         EventKind::ItemAdded => EventKindProto::ItemAdded,
         EventKind::ItemRemoved => EventKindProto::ItemRemoved,
         EventKind::GoldDelta => EventKindProto::GoldDelta,
@@ -265,5 +273,14 @@ fn map_team(team: Team) -> TeamProto {
         Team::Order => TeamProto::Order,
         Team::Chaos => TeamProto::Chaos,
         Team::Neutral => TeamProto::Neutral,
+    }
+}
+
+fn map_ability(slot: AbilitySlot) -> pb::AbilitySlot {
+    match slot {
+        AbilitySlot::Q => pb::AbilitySlot::Q,
+        AbilitySlot::W => pb::AbilitySlot::W,
+        AbilitySlot::E => pb::AbilitySlot::E,
+        AbilitySlot::R => pb::AbilitySlot::R,
     }
 }

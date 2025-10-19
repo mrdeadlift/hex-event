@@ -44,6 +44,7 @@ pub enum EventKind {
     Death,
     Assist,
     LevelUp,
+    SkillLevelUp,
     ItemAdded,
     ItemRemoved,
     GoldDelta,
@@ -59,6 +60,7 @@ pub enum EventPayload {
     Player(PlayerEvent),
     PlayerItem(ItemEvent),
     PlayerLevel(LevelEvent),
+    PlayerSkillLevel(SkillLevelEvent),
     PlayerGold(GoldEvent),
     Phase(PhaseEvent),
     Heartbeat(HeartbeatEvent),
@@ -80,6 +82,22 @@ pub struct ItemEvent {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct LevelEvent {
     pub player: PlayerRef,
+    pub level: u8,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum AbilitySlot {
+    Q,
+    W,
+    E,
+    R,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
+pub struct SkillLevelEvent {
+    pub player: PlayerRef,
+    pub ability: AbilitySlot,
     pub level: u8,
 }
 

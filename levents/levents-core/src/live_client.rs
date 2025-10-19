@@ -2,6 +2,7 @@ use super::{
     DaemonConfig, Event, EventBatch, EventKind, EventPayload, GoldEvent, ItemEvent, LevelEvent,
     PhaseEvent, PlayerEvent, PlayerRef, Team,
 };
+use levents_model::{AbilitySlot, SkillLevelEvent};
 use anyhow::{Context, Result};
 use async_stream::try_stream;
 use futures_core::Stream;
@@ -36,6 +37,7 @@ struct PollContext {
     digest: DigestState,
     players: PlayerRegistry,
     activity: ActivityState,
+    active_skills: Option<ActiveAbilitiesSnapshot>,
 }
 
 impl PollContext {
@@ -46,6 +48,7 @@ impl PollContext {
             digest: DigestState::default(),
             players: PlayerRegistry::default(),
             activity: ActivityState::default(),
+            active_skills: None,
         }
     }
 
@@ -54,13 +57,6 @@ impl PollContext {
         let active_url = format!("{base}/liveclientdata/activeplayer");
         let players_url = format!("{base}/liveclientdata/playerlist");
         let events_url = format!("{base}/liveclientdata/eventdata");
-
-        // Active player metadata is only used as a lightweight hash to exercise the HTTPS path.
-        if let Err(error) = fetch_endpoint(&self.http, &active_url).await.map(|resp| {
-            self.digest.active_hash = Some(resp.hash);
-        }) {
-            trace!(?error, "live client activeplayer probe failed");
-        }
 
         let players_resp = match fetch_endpoint(&self.http, &players_url).await {
             Ok(resp) => resp,
@@ -82,6 +78,20 @@ impl PollContext {
 
         let now_ms = timestamp_ms();
         let mut events = Vec::new();
+
+        // Fetch active player; if content changed, try to derive skill-level events for the local player.
+        match fetch_endpoint(&self.http, &active_url).await {
+            Ok(resp) => {
+                if self.digest.active_hash != Some(resp.hash) {
+                    let mut diff = self.diff_active_abilities(&resp.body, now_ms);
+                    events.append(&mut diff);
+                    self.digest.active_hash = Some(resp.hash);
+                }
+            }
+            Err(error) => {
+                trace!(?error, "live client activeplayer probe failed");
+            }
+        }
 
         if self.digest.players_hash != Some(players_resp.hash) {
             match parse_player_list(&players_resp.body) {
@@ -132,6 +142,88 @@ impl PollContext {
 
         let next_delay = self.activity.on_poll(!events.is_empty(), &self.config);
         Ok(PollOutcome { events, next_delay })
+    }
+}
+
+#[derive(Clone, Debug)]
+struct ActiveAbilitiesSnapshot {
+    summoner_name: String,
+    q: u8,
+    w: u8,
+    e: u8,
+    r: u8,
+}
+
+#[derive(Deserialize)]
+struct ActivePlayerAbilities {
+    #[serde(rename = "Q")] q: ActiveAbility,
+    #[serde(rename = "W")] w: ActiveAbility,
+    #[serde(rename = "E")] e: ActiveAbility,
+    #[serde(rename = "R")] r: ActiveAbility,
+}
+
+#[derive(Deserialize)]
+struct ActiveAbility {
+    #[serde(alias = "abilityLevel")]
+    #[serde(default)]
+    level: u8,
+}
+
+#[derive(Deserialize)]
+struct ActivePlayerResponse {
+    #[serde(rename = "summonerName")]
+    summoner_name: String,
+    abilities: ActivePlayerAbilities,
+}
+
+impl PollContext {
+    fn diff_active_abilities(&mut self, body: &[u8], ts_ms: u64) -> Vec<Event> {
+        let mut out = Vec::new();
+        let parsed: Result<ActivePlayerResponse, _> = serde_json::from_slice(body);
+        let parsed = match parsed {
+            Ok(value) => value,
+            Err(_) => return out,
+        };
+
+        // Resolve PlayerRef if we know this player from the registry
+        let player_ref = match self.players.player_ref(&parsed.summoner_name) {
+            Some(reference) => reference,
+            None => return out,
+        };
+
+        let current = ActiveAbilitiesSnapshot {
+            summoner_name: parsed.summoner_name.clone(),
+            q: parsed.abilities.q.level,
+            w: parsed.abilities.w.level,
+            e: parsed.abilities.e.level,
+            r: parsed.abilities.r.level,
+        };
+
+        if let Some(prev) = &self.active_skills {
+            let diffs = [
+                (AbilitySlot::Q, current.q, prev.q),
+                (AbilitySlot::W, current.w, prev.w),
+                (AbilitySlot::E, current.e, prev.e),
+                (AbilitySlot::R, current.r, prev.r),
+            ];
+
+            for (slot, now, before) in diffs {
+                if now > before {
+                    out.push(Event {
+                        kind: EventKind::SkillLevelUp,
+                        ts: ts_ms,
+                        payload: EventPayload::PlayerSkillLevel(SkillLevelEvent {
+                            player: player_ref.clone(),
+                            ability: slot,
+                            level: now,
+                        }),
+                    });
+                }
+            }
+        }
+
+        self.active_skills = Some(current);
+        out
     }
 }
 

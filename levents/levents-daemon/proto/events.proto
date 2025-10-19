@@ -15,6 +15,7 @@ enum EventKind {
   EVENT_KIND_DEATH = 2;
   EVENT_KIND_ASSIST = 3;
   EVENT_KIND_LEVEL_UP = 4;
+  EVENT_KIND_SKILL_LEVEL_UP = 11;
   EVENT_KIND_ITEM_ADDED = 5;
   EVENT_KIND_ITEM_REMOVED = 6;
   EVENT_KIND_GOLD_DELTA = 7;
@@ -44,6 +45,20 @@ message LevelEvent {
   uint32 level = 2;
 }
 
+enum AbilitySlot {
+  ABILITY_SLOT_UNSPECIFIED = 0;
+  ABILITY_SLOT_Q = 1;
+  ABILITY_SLOT_W = 2;
+  ABILITY_SLOT_E = 3;
+  ABILITY_SLOT_R = 4;
+}
+
+message SkillLevelEvent {
+  PlayerRef player = 1;
+  AbilitySlot ability = 2;
+  uint32 level = 3;
+}
+
 message GoldEvent {
   PlayerRef player = 1;
   int32 delta = 2;
@@ -70,6 +85,7 @@ message Event {
     PlayerEvent player = 3;
     ItemEvent player_item = 4;
     LevelEvent player_level = 5;
+    SkillLevelEvent player_skill_level = 10;
     GoldEvent player_gold = 6;
     PhaseEvent phase = 7;
     HeartbeatEvent heartbeat = 8;
