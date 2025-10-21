@@ -1,4 +1,5 @@
 import { EventEmitter } from "node:events";
+import { spawn, type ChildProcess } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { existsSync } from "node:fs";
@@ -80,6 +81,19 @@ export interface ClientOptions {
   connectionTimeoutMs?: number;
   reconnectInitialDelayMs?: number;
   reconnectMaxDelayMs?: number;
+  /**
+   * 接続失敗時に levents-daemon を自動起動するか。
+   * 既定: true
+   */
+  autoStartDaemon?: boolean;
+  /** 明示的にデーモンの実行ファイルパスを指定する場合 */
+  daemonPath?: string;
+  /** デーモンに渡す追加引数 */
+  daemonArgs?: string[];
+  /** 追加の環境変数（LEVENTS_GRPC_ADDR は自動で付与） */
+  daemonEnv?: Record<string, string>;
+  /** 自動起動後に起動完了を待つ上限（ms）。既定: 10000 */
+  daemonReadyTimeoutMs?: number;
 }
 
 type EventHandler<T extends EventPayload = EventPayload> = (
@@ -104,6 +118,11 @@ export interface ResolvedClientOptions {
   connectionTimeoutMs: number;
   reconnectInitialDelayMs: number;
   reconnectMaxDelayMs: number;
+  autoStartDaemon: boolean;
+  daemonPath?: string;
+  daemonArgs: string[];
+  daemonEnv: Record<string, string>;
+  daemonReadyTimeoutMs: number;
 }
 
 interface ProtoGrpcType {
@@ -269,6 +288,11 @@ function resolveOptions(options: ClientOptions): ResolvedClientOptions {
     connectionTimeoutMs: options.connectionTimeoutMs ?? 5_000,
     reconnectInitialDelayMs: options.reconnectInitialDelayMs ?? 1_000,
     reconnectMaxDelayMs: options.reconnectMaxDelayMs ?? 10_000,
+    autoStartDaemon: options.autoStartDaemon ?? true,
+    daemonPath: options.daemonPath,
+    daemonArgs: options.daemonArgs ?? [],
+    daemonEnv: options.daemonEnv ?? {},
+    daemonReadyTimeoutMs: options.daemonReadyTimeoutMs ?? 10_000,
   };
 }
 
@@ -297,6 +321,8 @@ export class LeventsClient {
   private reconnectTimer?: NodeJS.Timeout;
   private shuttingDown = false;
   private currentReconnectDelayMs: number;
+  private daemon?: ChildProcess;
+  private startedDaemon = false;
 
   constructor(options: ClientOptions = {}) {
     this.options = resolveOptions(options);
@@ -310,7 +336,15 @@ export class LeventsClient {
   async connect(): Promise<void> {
     this.shuttingDown = false;
     const client = this.ensureClient();
-    await waitForClientReady(client, this.options.connectionTimeoutMs);
+    try {
+      await waitForClientReady(client, this.options.connectionTimeoutMs);
+    } catch (err) {
+      if (this.options.autoStartDaemon && !this.startedDaemon) {
+        await this.startDaemonAndWait();
+      } else {
+        throw err;
+      }
+    }
     this.startStream();
   }
 
@@ -353,6 +387,7 @@ export class LeventsClient {
       this.client.close();
       this.client = undefined;
     }
+    await this.stopDaemon();
   }
 
   removeAllListeners(): void {
@@ -378,6 +413,105 @@ export class LeventsClient {
     );
     this.client = client;
     return client;
+  }
+
+  private async startDaemonAndWait(): Promise<void> {
+    if (!this.startedDaemon) {
+      const child = this.spawnDaemon();
+      this.daemon = child;
+      this.startedDaemon = true;
+
+      const cleanup = async () => {
+        await this.stopDaemon();
+      };
+      process.once("exit", () => {
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises
+        cleanup();
+      });
+      process.once("SIGINT", () => {
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises
+        cleanup();
+      });
+    }
+
+    const start = Date.now();
+    const client = this.ensureClient();
+    const timeout = this.options.daemonReadyTimeoutMs;
+    const stepMs = 250;
+    while (Date.now() - start < timeout) {
+      try {
+        const remaining = Math.max(0, timeout - (Date.now() - start));
+        await waitForClientReady(client, Math.min(stepMs, remaining));
+        return;
+      } catch {
+        await new Promise((r) => setTimeout(r, stepMs));
+      }
+    }
+    throw new Error(
+      `levents-daemon did not become ready within ${timeout}ms`
+    );
+  }
+
+  private spawnDaemon(): ChildProcess {
+    const endpoint = this.options.endpoint;
+    const env: NodeJS.ProcessEnv = {
+      ...process.env,
+      ...this.options.daemonEnv,
+      LEVENTS_GRPC_ADDR: endpoint,
+    };
+
+    const candidates: string[] = [];
+    if (this.options.daemonPath) candidates.push(this.options.daemonPath);
+    if (process.env.LEVENTS_DAEMON_BIN)
+      candidates.push(process.env.LEVENTS_DAEMON_BIN);
+
+    // PATH 上のコマンド
+    candidates.push(process.platform === "win32" ? "levents-daemon.exe" : "levents-daemon");
+
+    // 開発時のローカル成果物候補（cwd と SDK 相対の両方）
+    const exe = process.platform === "win32" ? "levents-daemon.exe" : "levents-daemon";
+    candidates.push(
+      path.resolve(process.cwd(), "levents", "target", "release", exe),
+      path.resolve(process.cwd(), "levents", "target", "debug", exe),
+      path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..", "levents", "target", "release", exe),
+      path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..", "levents", "target", "debug", exe)
+    );
+
+    let lastErr: unknown;
+    for (const cmd of candidates) {
+      try {
+        const child = spawn(cmd, this.options.daemonArgs, {
+          env,
+          stdio: "inherit",
+          windowsHide: true,
+        });
+        if (child.pid) {
+          return child;
+        }
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+    throw new Error(
+      `Failed to start levents-daemon. Tried: ${candidates.join(", ")}. Last error: ${(lastErr as Error)?.message ?? "unknown"}`
+    );
+  }
+
+  private async stopDaemon(): Promise<void> {
+    const child = this.daemon;
+    if (!child) return;
+    try {
+      if (process.platform === "win32") {
+        child.kill();
+      } else {
+        child.kill("SIGTERM");
+      }
+    } catch {
+      // noop
+    } finally {
+      this.daemon = undefined;
+      this.startedDaemon = false;
+    }
   }
 
   private startStream(): void {

@@ -66,6 +66,10 @@ await client.connect();
 Notes:
 - The client auto-reconnects on stream errors and exposes `onError`.
 - Event kinds: `kill | death | assist | levelUp | skillLevelUp | itemAdded | itemRemoved | goldDelta | respawn | phaseChange | heartbeat`.
+- If the daemon is not running, `@levents/sdk` will try to auto-start `levents-daemon` on first `connect()`:
+  - Looks for `LEVENTS_DAEMON_BIN`, then `levents-daemon` in `PATH`, then local build outputs under `levents/target/{release,debug}`.
+  - Binds to `endpoint` via env `LEVENTS_GRPC_ADDR`. Disable with `createClient({ autoStartDaemon: false })`.
+  - You can pass `daemonPath`, `daemonArgs`, `daemonEnv`, and `daemonReadyTimeoutMs` for finer control.
 
 ### Use the Python SDK
 
