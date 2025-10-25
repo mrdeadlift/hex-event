@@ -285,8 +285,8 @@ function resolveOptions(options: ClientOptions): ResolvedClientOptions {
     lcu,
     endpoint: options.endpoint ?? "127.0.0.1:50051",
     useTls: options.useTls ?? false,
-    connectionTimeoutMs: options.connectionTimeoutMs ?? 5_000,
-    reconnectInitialDelayMs: options.reconnectInitialDelayMs ?? 1_000,
+    connectionTimeoutMs: options.connectionTimeoutMs ?? 5000,
+    reconnectInitialDelayMs: options.reconnectInitialDelayMs ?? 1000,
     reconnectMaxDelayMs: options.reconnectMaxDelayMs ?? 10_000,
     autoStartDaemon: options.autoStartDaemon ?? true,
     daemonPath: options.daemonPath,
@@ -408,7 +408,7 @@ export class LeventsClient {
       channelCredentials,
       {
         "grpc.keepalive_time_ms": 30_000,
-        "grpc.keepalive_timeout_ms": 5_000,
+        "grpc.keepalive_timeout_ms": 5000,
       }
     );
     this.client = client;
@@ -447,9 +447,7 @@ export class LeventsClient {
         await new Promise((r) => setTimeout(r, stepMs));
       }
     }
-    throw new Error(
-      `levents-daemon did not become ready within ${timeout}ms`
-    );
+    throw new Error(`levents-daemon did not become ready within ${timeout}ms`);
   }
 
   private spawnDaemon(): ChildProcess {
@@ -466,15 +464,36 @@ export class LeventsClient {
       candidates.push(process.env.LEVENTS_DAEMON_BIN);
 
     // PATH 上のコマンド
-    candidates.push(process.platform === "win32" ? "levents-daemon.exe" : "levents-daemon");
+    candidates.push(
+      process.platform === "win32" ? "levents-daemon.exe" : "levents-daemon"
+    );
 
     // 開発時のローカル成果物候補（cwd と SDK 相対の両方）
-    const exe = process.platform === "win32" ? "levents-daemon.exe" : "levents-daemon";
+    const exe =
+      process.platform === "win32" ? "levents-daemon.exe" : "levents-daemon";
     candidates.push(
       path.resolve(process.cwd(), "levents", "target", "release", exe),
       path.resolve(process.cwd(), "levents", "target", "debug", exe),
-      path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..", "levents", "target", "release", exe),
-      path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..", "levents", "target", "debug", exe)
+      path.resolve(
+        fileURLToPath(new URL(".", import.meta.url)),
+        "..",
+        "..",
+        "..",
+        "levents",
+        "target",
+        "release",
+        exe
+      ),
+      path.resolve(
+        fileURLToPath(new URL(".", import.meta.url)),
+        "..",
+        "..",
+        "..",
+        "levents",
+        "target",
+        "debug",
+        exe
+      )
     );
 
     let lastErr: unknown;
@@ -493,7 +512,9 @@ export class LeventsClient {
       }
     }
     throw new Error(
-      `Failed to start levents-daemon. Tried: ${candidates.join(", ")}. Last error: ${(lastErr as Error)?.message ?? "unknown"}`
+      `Failed to start levents-daemon. Tried: ${candidates.join(
+        ", "
+      )}. Last error: ${(lastErr as Error)?.message ?? "unknown"}`
     );
   }
 
